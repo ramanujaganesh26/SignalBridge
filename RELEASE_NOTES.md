@@ -1,82 +1,45 @@
-# SignalBridge Release v1.0.0 — Sender & Receiver Dual-Window Architecture
+This is the stable release of SignalBridge v1.0.0.
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg?style=flat-square)]()
-[![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square)](https://en.cppreference.com/w/cpp/17)
-[![Qt Version](https://img.shields.io/badge/Qt-6.8%2B-brightgreen.svg?style=flat-square)](https://www.qt.io/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20x64-informational.svg?style=flat-square)]()
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+## What's New
 
-We are pleased to announce the official **v1.0.0** release of **SignalBridge** (QtTwoWindows), a modern desktop application built with Qt 6 Widgets, C++17, and CMake.
+SignalBridge v1.0.0 introduces a modern Qt 6 C++ desktop architecture featuring decoupled dual-window event-driven communication (In-Process Direct Signals/Slots vs. Out-of-Process TCP Network Streaming).
 
-This release includes both a **pre-compiled standalone Windows 64-bit bundle** (with all Qt runtime libraries included) and a **clean open-source source code package**.
+> [!IMPORTANT]
+> **Transport Isolation State Machine**: The Sender window features an explicit mode selector (`Direct Signal/Slot` vs `TCP Network Socket`). When Network Mode is selected and disconnected, transmission is safely blocked with a status indicator to prevent duplicate logs or ghost signal emissions.
 
 ---
 
-## Technical Highlights
+## Changes in v1.0.0
 
-- **Dual-Channel Transport System**:
-  - **In-Process Direct Signal/Slot**: Type-safe, compile-time checked event dispatch (`SenderWindow::dataSent` $\rightarrow$ `ReceiverWindow::dataReceived`).
-  - **Out-of-Process TCP Socket Streaming**: Non-blocking asynchronous network IPC using `QTcpSocket` (client) and `QTcpServer` (server) over local TCP ports.
-- **Transport Isolation State Machine**: Built-in mode selector in the Sender window ensuring messages are transmitted strictly over the active channel without duplicate log entries or ghost fallbacks.
-- **Real-Time Log Views**: Receiver log auto-formats incoming messages with ISO local timestamps `[HH:mm:ss]` and auto-scrolls to the newest item (`scrollToBottom()`).
-- **Independent Process Execution**: Built-in CLI flags (`--sender` and `--receiver`) to run separate standalone window instances over network ports.
-- **Zero Memory Leaks**: Memory safety enforced via RAII and Qt's `QObject` parent-child tree.
-
----
-
-## Release Assets
-
-| Asset Package | Target Platform | Description | Size | SHA-256 Checksum |
-| :--- | :--- | :--- | :--- | :--- |
-| **`SignalBridge-v1.0.0-Windows-x64.zip`** | Windows x64 | Pre-compiled standalone release bundle. Includes `QtTwoWindows.exe` and all deployed Qt 6 runtime DLLs (`Qt6Core`, `Qt6Gui`, `Qt6Widgets`, `Qt6Network`, `platforms/qwindows.dll`). No Qt or CMake installation required. | 21.6 MB | `A2734A80CE194363954917F45550B9286553A036AE1DC8405966816AC0A65542` |
-| **`SignalBridge-Source-v1.0.0.zip`** | Any (Cross-Platform) | Clean open-source code bundle containing `CMakeLists.txt`, `main.cpp`, headers, source files, documentation, and UI assets. | 141.8 KB | `89D5F316B1FDADF4A6B2B3E057EE5035C2DCEB1B149B1CA2A78A00EC35621A99` |
+- `feat(SenderWindow)`: add transport mode selector dropdown (Direct Signal/Slot vs TCP Network Socket)
+- `feat(SenderWindow)`: input validation and trimming to ignore empty or whitespace-only messages
+- `feat(SenderWindow)`: embedded `QTcpSocket` client with connection state tracking and error handling
+- `feat(ReceiverWindow)`: real-time `[HH:mm:ss]` local timestamping and auto-scrolling log view (`scrollToBottom()`)
+- `feat(ReceiverWindow)`: embedded asynchronous `QTcpServer` listening on customizable port (default `12345`)
+- `feat(CLI)`: add `--sender` and `--receiver` command-line flags for independent multi-process execution
+- `fix(Transport)`: isolate direct signal/slot from TCP socket stream to eliminate double-emission and duplicate logging
+- `fix(Warnings)`: resolve MSVC `/W4` and GCC `-Wall -Wextra` warnings (`std::as_const` and variable scope cleanup)
+- `chore(Build)`: CMake 3.16+ project setup targeting Qt 6 `Widgets` and `Network` components
+- `docs(README)`: comprehensive technical architecture documentation with Mermaid data pipeline diagrams
 
 ---
 
-## Quick Start Guide
+## Installation
 
-### Option A: Running the Standalone Windows Executable (No Build Required)
+### Windows 64-bit (Standalone Bundle)
+Download `SignalBridge-v1.0.0-Windows-x64.zip`, extract the archive, and launch `QtTwoWindows.exe`. All required Qt 6 runtime libraries (`Qt6Core.dll`, `Qt6Gui.dll`, `Qt6Widgets.dll`, `Qt6Network.dll`, `platforms/qwindows.dll`) are bundled. No Qt or CMake installation is required.
 
-1. Download **`SignalBridge-v1.0.0-Windows-x64.zip`**.
-2. Extract the ZIP archive to any folder on your computer.
-3. Double-click **`QtTwoWindows.exe`** to launch both windows side by side.
-
-### Option B: Building from Source Code
-
-#### Prerequisites
-- C++17 compliant compiler (MSVC 2022, GCC 9+, or Clang 10+)
-- CMake 3.16+
-- Qt 6.0+ (Widgets and Network modules)
-
+### Build from Source Code
+Download `SignalBridge-Source-v1.0.0.zip` or clone the repository. Configure and build using CMake 3.16+ and Qt 6.0+:
 ```bash
-# 1. Clone repository or extract SignalBridge-Source-v1.0.0.zip
-git clone https://github.com/ramanujaganesh26/SignalBridge.git
-cd SignalBridge
-
-# 2. Configure build directory
 cmake -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.8.3/msvc2022_64"
-
-# 3. Compile Release binary
 cmake --build build --config Release
 ```
 
----
-
-## Execution Modes
-
-- **Single-Process Mode (Default)**: Launch `QtTwoWindows.exe` to run both windows side-by-side in one process.
-- **Dual-Process Mode**: Run separate instances in distinct terminal windows to demonstrate process-isolated IPC over network sockets:
-  ```bash
-  # Terminal 1: Receiver process
-  ./QtTwoWindows.exe --receiver
-
-  # Terminal 2: Sender process
-  ./QtTwoWindows.exe --sender
-  ```
+For full system requirements and compilation options, see the [README](https://github.com/ramanujaganesh26/SignalBridge#readme).
 
 ---
 
-## Licensing & Attribution
+## Reporting Issues
 
-- **Project Source Code**: Released under the [MIT License](LICENSE).
-- **Bundled Qt Libraries**: The pre-compiled Windows executable bundle includes runtime libraries from the Qt Framework, licensed under the **GNU Lesser General Public License (LGPLv3)**. For more information, visit [https://www.qt.io/licensing](https://www.qt.io/licensing).
+Please report any bugs or feature requests on [GitHub Issues](https://github.com/ramanujaganesh26/SignalBridge/issues).
