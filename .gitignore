@@ -1,6 +1,8 @@
 # Build & IDE directories
 build/
 build*/
+dist/
+*.zip
 bin/
 lib/
 .qtcreator/

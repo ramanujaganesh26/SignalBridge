@@ -268,4 +268,6 @@ To verify process-isolated IPC over local network sockets, run each window in se
 
 ## License
 
-This software is released under the terms of the MIT License.
+This project's source code is licensed under the terms of the MIT License as specified in [LICENSE](LICENSE).
+
+The pre-compiled standalone Windows release bundle includes runtime libraries from the Qt Framework. Qt is licensed under the GNU Lesser General Public License (LGPLv3). For more details regarding Qt licensing, please visit [https://www.qt.io/licensing](https://www.qt.io/licensing).
