@@ -15,7 +15,7 @@ The application allows running both windows in a single process or executing the
 
 ---
 
-## Architecture & Design
+## Architecture & System Design
 
 ### Component Structure
 
@@ -47,24 +47,84 @@ The application allows running both windows in a single process or executing the
 - **Object Ownership & Memory Management**: All UI components and network objects use Qt parent-child ownership (`QObject` hierarchy). No manual heap memory deletes are required.
 - **Dynamic Layouts**: Layouts are built using nested `QVBoxLayout` and `QHBoxLayout` instances, allowing automatic scaling across screen resolutions and DPI settings.
 
+<details>
+<summary><b>View Sequence Diagrams (Click to Expand / Zoom In)</b></summary>
+
+<br>
+
+### 1. In-Process Direct Signal/Slot Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Sender as SenderWindow
+    participant Main as main.cpp
+    participant Receiver as ReceiverWindow
+
+    User->>Sender: Types message & clicks Send / presses Enter
+    Sender->>Sender: Sanitize input (trim whitespace)
+    Sender->>Sender: Check Mode == DirectSignalSlot
+    Sender->>Receiver: emit dataSent("message")
+    Receiver->>Receiver: Format "[HH:mm:ss] message"
+    Receiver->>Receiver: Append to QListWidget & scrollToBottom()
+    Sender->>Sender: m_inputLineEdit->clear()
+```
+
+### 2. Out-of-Process TCP Network Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Client as Sender (QTcpSocket)
+    participant Server as Receiver (QTcpServer)
+    participant ReceiverUI as Receiver QListWidget
+
+    User->>Client: Click "Connect" (127.0.0.1:12345)
+    Client->>Server: TCP Handshake (connectToHost)
+    Server-->>Client: Connection Accepted
+    Server->>Server: Update status label ("Connected clients: 1")
+    User->>Client: Types message & clicks Send
+    Client->>Server: write("message\n") UTF-8 payload
+    Server->>Server: readyRead signal -> readLine()
+    Server->>ReceiverUI: dataReceived("message")
+    ReceiverUI->>ReceiverUI: Append timestamped log entry
+```
+
+</details>
+
 ---
 
 ## Screenshots
 
-### Application Overview (Dual Window Mode)
+### Main Application Views
+
+#### Dual Window Mode
 ![Sender and Receiver Application Setup](IMG/Sender%20and%20Receiver.png)
 
-### Active TCP Streaming Log
+#### Active TCP Streaming
 ![Active TCP Connection and Data Received](IMG/Received%20Data.png)
 
-### Individual Window Components
+<details>
+<summary><b>View Individual Component Views (Click to Expand / Zoom In)</b></summary>
+
+<br>
+
 | Sender Window | Receiver Window |
 |---|---|
 | ![Sender UI](IMG/Sender.png) | ![Receiver UI](IMG/Receiver.png) |
 
+</details>
+
 ---
 
 ## Implementation Details
+
+<details>
+<summary><b>View Core Source Code Snippets (Click to Expand / Zoom In)</b></summary>
+
+<br>
 
 ### 1. In-Process Signal/Slot Binding (`main.cpp`)
 
@@ -119,6 +179,8 @@ void ReceiverWindow::dataReceived(const QString &message)
     m_logWidget->scrollToBottom();
 }
 ```
+
+</details>
 
 ---
 
