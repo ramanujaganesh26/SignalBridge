@@ -46,7 +46,7 @@
 </div>
 
 <details>
-<summary><b>🔍 View Individual Component Screenshots (Click to Expand / Zoom In)</b></summary>
+<summary><b>🔍 Zoom In / Expand Individual Component Screenshots (Click to Expand)</b></summary>
 
 <br>
 
@@ -58,7 +58,7 @@
 
 ---
 
-## 🏗️ Architecture & Component Design
+## 🏗️ Architecture & Data Pipeline
 
 ```
 +---------------------------------------------------------------------------------+
@@ -81,20 +81,84 @@
                     [QTcpSocket -> QTcpServer Stream Parsing]
 ```
 
-### Key Architectural Highlights
+<details open>
+<summary><b>🔍 Zoom In / Expand High-Resolution System Pipeline & Data Flow Diagram (Click to Collapse / Expand)</b></summary>
 
-- **Decoupled Event Handling**: `SenderWindow` has zero direct dependencies on `ReceiverWindow`. Communication occurs strictly through Qt signals/slots or TCP network sockets.
-- **Transport Mode Guarding**: An explicit transport mode state machine prevents duplicate data logging and guards against fallback transmission when network sockets are disconnected.
-- **Non-Blocking Asynchronous Network Layer**: Uses Qt's event loop (`QEventLoop`) with `readyRead` signals to stream line-delimited UTF-8 network payloads without freezing the UI thread.
-- **Strict Memory Safety & RAII**: Zero manual `delete` calls. All UI widgets, layouts, and socket objects leverage Qt's parent-child ownership tree (`QObject` memory management).
-- **Responsive Layout System**: Dynamic UI constructed entirely with nested `QVBoxLayout` and `QHBoxLayout` layout management—eliminating hardcoded coordinates and accommodating dynamic screen DPI scaling.
+<br>
+
+```mermaid
+graph TD
+    subgraph UI_Layer["User Interface Layer"]
+        A["User Input QLineEdit"] --> B["Send Button / Return Key"]
+        C["Mode Selector QComboBox"] --> D{"Transport Mode"}
+    end
+
+    subgraph Logic_Layer["Logic & Transport Pipeline"]
+        B --> E["Input Sanitizer text.trimmed()"]
+        E --> F{"Is Non-Empty?"}
+        F -- Yes --> D
+        F -- No --> G["Ignore Request"]
+        
+        D -- Direct Signal/Slot --> H["emit dataSent(message)"]
+        D -- TCP Network Socket --> I{"QTcpSocket Connected?"}
+        
+        I -- Yes --> J["Write UTF-8 Payload message + '\\n'"]
+        I -- No --> K["Set Error Label: Socket Disconnected"]
+    end
+
+    subgraph Receiver_Layer["Receiver Processing Pipeline"]
+        H --> L["ReceiverWindow::dataReceived(message)"]
+        J --> M["QTcpServer readyRead Signal"]
+        M --> N["readLine() UTF-8 Stream Parser"]
+        N --> L
+        L --> O["Generate Timestamp [HH:mm:ss]"]
+        O --> P["QListWidget::addItem()"]
+        P --> Q["QListWidget::scrollToBottom()"]
+    end
+
+    style UI_Layer fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style Logic_Layer fill:#eef7ff,stroke:#0066cc,stroke-width:2px
+    style Receiver_Layer fill:#efe,stroke:#009933,stroke-width:2px
+```
+
+</details>
+
+<details>
+<summary><b>🔍 Zoom In / Expand Sender State Machine Diagram (Click to Expand)</b></summary>
+
+<br>
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    
+    state SenderWindow {
+        Idle --> DirectMode : Select Direct Signal/Slot
+        Idle --> TcpMode : Select TCP Network Socket
+        
+        DirectMode --> EmitSignal : Click Send
+        EmitSignal --> DirectMode : dataSent Emitted
+        
+        TcpMode --> Connecting : Click Connect
+        Connecting --> Connected : Socket Connected
+        Connecting --> ConnectionError : Connection Refused
+        
+        Connected --> TransmitTcp : Click Send
+        TransmitTcp --> Connected : Write Payload & Flush
+        
+        ConnectionError --> BlockedSend : Click Send
+        BlockedSend --> ConnectionError : Display Error Label
+    }
+```
+
+</details>
 
 ---
 
 ## 🔄 Sequence Diagrams
 
 <details>
-<summary><b>🔍 View Interactive Sequence Diagrams (Click to Expand / Zoom In)</b></summary>
+<summary><b>🔍 Zoom In / Expand Interactive Sequence Diagrams (Click to Expand)</b></summary>
 
 <br>
 
@@ -161,7 +225,7 @@ QtTwoWindows/
 ## 💻 Deep Dive: Major Implementation Highlights
 
 <details>
-<summary><b>🔍 View Core Source Code Snippets (Click to Expand / Zoom In)</b></summary>
+<summary><b>🔍 Zoom In / Expand Core Source Code Snippets (Click to Expand)</b></summary>
 
 <br>
 
