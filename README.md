@@ -1,189 +1,103 @@
-<div align="center">
+# QtTwoWindows (SignalBridge)
 
-# 🚀 QtTwoWindows (SignalBridge)
-
-### *High-Performance Event-Driven IPC & Dual-Window Qt 6 C++ Architecture*
-
-[![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=for-the-badge&logo=cplusplus)](https://en.cppreference.com/w/cpp/17)
-[![Qt Version](https://img.shields.io/badge/Qt-6.8%2B-brightgreen.svg?style=for-the-badge&logo=qt)](https://www.qt.io/)
-[![CMake](https://img.shields.io/badge/CMake-3.16%2B-red.svg?style=for-the-badge&logo=cmake)](https://cmake.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![Build Status](https://img.shields.io/badge/Build-Passing-success.svg?style=for-the-badge)]()
-
-<p align="center">
-  <b>A modern C++17 / Qt 6 desktop application demonstrating decoupled event-driven architecture, dual-channel Inter-Process Communication (In-Process Direct Signals vs. Out-of-Process TCP Sockets), robust RAII memory safety, and clean OOP design patterns.</b>
-</p>
-
-</div>
+A Qt 6 C++ desktop application demonstrating decoupled event-driven architecture, dual-channel inter-process communication (IPC), and RAII memory management across separate top-level windows.
 
 ---
 
-## 📖 Overview
+## Overview
 
-**QtTwoWindows** (also known as *SignalBridge*) is an architectural demonstration built using **Qt 6 Widgets** and **CMake**. It illustrates how two distinct top-level application windows—a **Sender** and a **Receiver**—can transmit data across boundaries using two decoupled communication models:
+QtTwoWindows (SignalBridge) demonstrates inter-window data transfer in Qt 6 using two distinct communication channels:
 
-1. **In-Process Signal/Slot Dispatch**: Type-safe, compile-time checked direct message passing via modern C++ pointer-to-member Qt signals (`dataSent`) and slots (`dataReceived`).
-2. **Out-of-Process TCP Socket Streaming**: Non-blocking asynchronous network IPC using `QTcpSocket` (Client) and `QTcpServer` (Server) over local host ports.
+1. **In-Process Signal/Slot Dispatch**: Direct, type-safe message passing using Qt modern C++ pointer-to-member signals (`dataSent`) and slots (`dataReceived`).
+2. **Out-of-Process TCP Socket Streaming**: Asynchronous network communication using `QTcpSocket` (client) and `QTcpServer` (server) over local TCP ports.
+
+The application allows running both windows in a single process or executing them as separate, independent processes.
 
 ---
 
-## 🖼️ Visual Gallery
+## Architecture & Design
 
-<div align="center">
+### Component Structure
 
-### 1. Dual-Window In-Process Communication Mode
-*Side-by-side view showing the Sender window with mode selection and the Receiver window with real-time log tracking.*
+```
+                      +-------------------+
+                      |     main.cpp      |
+                      +---------+---------+
+                                |
+             +------------------+------------------+
+             |                                     |
+             v                                     v
+   +-------------------+                 +-------------------+
+   |   SenderWindow    |                 |  ReceiverWindow   |
+   | (Top-Level QWidget|                 | (Top-Level QWidget|
+   +---------+---------+                 +---------+---------+
+             |                                     |
+             +-- Channel 1: Direct Signal/Slot --->+
+             |   [QObject::connect(...)]           |
+             |                                     |
+             +-- Channel 2: TCP Socket (12345) --->+
+                 [QTcpSocket -> QTcpServer]
+```
 
+### Key Technical Aspects
+
+- **Decoupled Architecture**: `SenderWindow` and `ReceiverWindow` have no direct header dependencies on each other. Communication occurs strictly via Qt signals/slots or network sockets.
+- **Transport Mode Guarding**: An explicit transport mode selector controls data routing. When TCP mode is selected and disconnected, message delivery via direct signals is suppressed to prevent silent fallback or duplicate logging.
+- **Asynchronous I/O**: Network reading uses Qt event loop signals (`readyRead`) to parse incoming UTF-8 text lines without blocking the UI thread.
+- **Object Ownership & Memory Management**: All UI components and network objects use Qt parent-child ownership (`QObject` hierarchy). No manual heap memory deletes are required.
+- **Dynamic Layouts**: Layouts are built using nested `QVBoxLayout` and `QHBoxLayout` instances, allowing automatic scaling across screen resolutions and DPI settings.
+
+---
+
+## Screenshots
+
+### Application Overview (Dual Window Mode)
 ![Sender and Receiver Application Setup](IMG/Sender%20and%20Receiver.png)
 
----
-
-### 2. Live Out-of-Process TCP Socket Streaming
-*Demonstrating active client connection on port 12345 with real-time timestamped data formatting `[HH:mm:ss] Hello World`.*
-
+### Active TCP Streaming Log
 ![Active TCP Connection and Data Received](IMG/Received%20Data.png)
 
-</div>
-
-<details>
-<summary><b>🔍 View Individual Component Screenshots</b></summary>
-
-| Sender Component | Receiver Component |
-| :---: | :---: |
+### Individual Window Components
+| Sender Window | Receiver Window |
+|---|---|
 | ![Sender UI](IMG/Sender.png) | ![Receiver UI](IMG/Receiver.png) |
 
-</details>
-
 ---
 
-## 🏗️ Architecture & Component Design
+## Implementation Details
 
-```
-+---------------------------------------------------------------------------------+
-|                                 APPLICATION MAIN                                |
-|                                   (main.cpp)                                    |
-+----------------------------------------+----------------------------------------+
-                                         |
-               +-------------------------+-------------------------+
-               |                                                   |
-               v                                                   v
-   +-----------------------+                           +-----------------------+
-   |     SenderWindow      |                           |    ReceiverWindow     |
-   |   (Top-Level QWidget) |                           |  (Top-Level QWidget)  |
-   +-----------+-----------+                           +-----------+-----------+
-               |                                                   |
-               +--- Mode 1: Direct Signal/Slot -------------------->+
-               |    [QObject::connect(&sender, &dataSent, ...)]   |
-               |                                                   |
-               +--- Mode 2: TCP Network Socket (Port 12345) ------>+
-                    [QTcpSocket -> QTcpServer Stream Parsing]
-```
+### 1. In-Process Signal/Slot Binding (`main.cpp`)
 
-### Key Architectural Highlights
-
-- **Decoupled Event Handling**: `SenderWindow` has zero direct dependencies on `ReceiverWindow`. Communication occurs strictly through Qt signals/slots or TCP network sockets.
-- **Transport Mode Guarding**: An explicit transport mode state machine prevents duplicate data logging and guards against fallback transmission when network sockets are disconnected.
-- **Non-Blocking Asynchronous Network Layer**: Uses Qt's event loop (`QEventLoop`) with `readyRead` signals to stream line-delimited UTF-8 network payloads without freezing the UI thread.
-- **Strict Memory Safety & RAII**: Zero manual `delete` calls. All UI widgets, layouts, and socket objects leverage Qt's parent-child ownership tree (`QObject` memory management).
-- **Responsive Layout System**: Dynamic UI constructed entirely with nested `QVBoxLayout` and `QHBoxLayout` layout management—eliminating hardcoded coordinates and accommodating dynamic screen DPI scaling.
-
----
-
-## 🔄 Sequence Diagrams
-
-### 1. In-Process Direct Signal/Slot Mode
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Sender as SenderWindow
-    participant Main as main.cpp
-    participant Receiver as ReceiverWindow
-
-    User->>Sender: Types "Hello World" & Clicks Send / Presses Enter
-    Sender->>Sender: Sanitize input (trim whitespace)
-    Sender->>Sender: Check Mode == DirectSignalSlot
-    Sender->>Receiver: emit dataSent("Hello World")
-    Receiver->>Receiver: Format "[HH:mm:ss] Hello World"
-    Receiver->>Receiver: Append to QListWidget & scrollToBottom()
-    Sender->>Sender: m_inputLineEdit->clear()
-```
-
-### 2. Out-of-Process TCP Network Mode
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Client as Sender (QTcpSocket)
-    participant Server as Receiver (QTcpServer)
-    participant ReceiverUI as Receiver QListWidget
-
-    User->>Client: Click "Connect" (127.0.0.1:12345)
-    Client->>Server: TCP Handshake (connectToHost)
-    Server-->>Client: Connection Accepted
-    Server->>Server: Update status label ("Connected clients: 1")
-    User->>Client: Types "Hello World" & Clicks Send
-    Client->>Server: write("Hello World\n") UTF-8 payload
-    Server->>Server: readyRead signal -> readLine()
-    Server->>ReceiverUI: dataReceived("Hello World")
-    ReceiverUI->>ReceiverUI: Append timestamped log entry
-```
-
----
-
-## 📦 Project Structure
-
-```
-QtTwoWindows/
-├── CMakeLists.txt         # CMake 3.16+ build configuration & Qt 6 linking
-├── main.cpp               # Application entry point, CLI parser, & window initialization
-├── SenderWindow.h         # Sender UI declaration, signals, & QTcpSocket members
-├── SenderWindow.cpp       # Input validation, mode switching, & TCP transmission
-├── ReceiverWindow.h       # Receiver UI declaration, slots, & QTcpServer members
-├── ReceiverWindow.cpp     # Log formatting, auto-scrolling, & socket stream parsing
-├── IMG/                   # High-resolution application screenshots
-└── README.md              # Project documentation
-```
-
----
-
-## 💻 Deep Dive: Major Implementation Highlights
-
-### 1. Modern Function-Pointer Signal/Slot Binding ([main.cpp](file:///c:/Users/RAM/Documents/SignalBridge/main.cpp#L40-L45))
+Direct communication is configured using compile-time type-checked member function pointers:
 
 ```cpp
-// Direct In-Process Signal/Slot Connection using compile-time checked syntax
 QObject::connect(&senderWindow, &SenderWindow::dataSent,
                  &receiverWindow, &ReceiverWindow::dataReceived);
 ```
 
-### 2. Input Sanitization & Transport Mode Guarding ([SenderWindow.cpp](file:///c:/Users/RAM/Documents/SignalBridge/SenderWindow.cpp#L125-L150))
+### 2. Transport Mode Switching & Input Sanitization (`SenderWindow.cpp`)
+
+Inputs are trimmed and checked before transmission. The active transport mode dictates whether the message is emitted over signals or sent through the TCP stream:
 
 ```cpp
 void SenderWindow::onSendClicked()
 {
     const QString text = m_inputLineEdit->text().trimmed();
 
-    // Ignore empty or whitespace-only input
     if (text.isEmpty()) {
         return;
     }
 
     if (currentTransportMode() == TransportMode::DirectSignalSlot) {
-        // Direct In-Process Signal/Slot Mode
         emit dataSent(text);
         m_inputLineEdit->clear();
     } else {
-        // TCP Network Socket Mode
         if (m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
             QByteArray payload = text.toUtf8() + "\n";
             m_tcpSocket->write(payload);
             m_tcpSocket->flush();
             m_inputLineEdit->clear();
         } else {
-            // Guard against disconnected TCP socket
             m_statusLabel->setText(tr("Error: Cannot send — TCP socket is not connected!"));
             m_statusLabel->setStyleSheet(QStringLiteral("color: #c0392b; font-weight: bold;"));
         }
@@ -191,16 +105,16 @@ void SenderWindow::onSendClicked()
 }
 ```
 
-### 3. Log Formatting & Auto-Scrolling ([ReceiverWindow.cpp](file:///c:/Users/RAM/Documents/SignalBridge/ReceiverWindow.cpp#L70-L83))
+### 3. Log Formatting & Auto-Scrolling (`ReceiverWindow.cpp`)
+
+Incoming text messages are formatted with local system timestamps and appended to the `QListWidget` log view:
 
 ```cpp
 void ReceiverWindow::dataReceived(const QString &message)
 {
-    // Format entry as "[HH:mm:ss] <message>"
     const QString timestamp = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
     const QString formattedEntry = QStringLiteral("[%1] %2").arg(timestamp, message);
 
-    // Append to log and scroll to newest item
     m_logWidget->addItem(formattedEntry);
     m_logWidget->scrollToBottom();
 }
@@ -208,62 +122,59 @@ void ReceiverWindow::dataReceived(const QString &message)
 
 ---
 
-## ⚙️ Build & Installation Guide
+## Building and Running
 
-### Prerequisites
+### System Requirements
 
-- **Compiler**: C++17 compliant compiler (MSVC 2022, GCC 9+, or Clang 10+)
-- **Build System**: CMake 3.16 or higher
-- **Framework**: Qt 6.0+ (`Widgets` and `Network` components)
+- C++17 capable compiler (MSVC 2022, GCC 9+, or Clang 10+)
+- CMake 3.16 or higher
+- Qt 6.0+ (Widgets and Network modules)
 
-### Building via CMake
+### Build Steps
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/QtTwoWindows.git
-cd QtTwoWindows
-
-# 2. Configure build directory (specify Qt prefix path if Qt is in custom directory)
+# Configure the build directory
 cmake -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.8.3/msvc2022_64"
 
-# 3. Build executable in Release mode
+# Build the executable
 cmake --build build --config Release
 ```
 
+*(Update `-DCMAKE_PREFIX_PATH` to point to your local Qt installation directory if Qt is not on the system PATH.)*
+
 ---
 
-## 🚀 Execution Modes
+## Execution Options
 
-### Mode A: Dual-Window Single Process (Default)
+### Single-Process Mode (Default)
 
-Launch the application directly to open both windows side by side:
+Running the binary launches both windows side by side:
 
 ```bash
 ./build/Release/QtTwoWindows.exe
 ```
 
-### Mode B: Multi-Process Independent Execution
+### Independent Process Mode
 
-Run two separate application instances in distinct terminal windows to demonstrate true process-isolated IPC over local network sockets:
+The application supports command-line flags to run windows as separate processes:
 
 ```bash
-# Terminal 1: Receiver Server Process
+# Start the Receiver server process
 ./build/Release/QtTwoWindows.exe --receiver
 
-# Terminal 2: Sender Client Process
+# Start the Sender client process in a separate terminal
 ./build/Release/QtTwoWindows.exe --sender
 ```
 
 ---
 
-## 🛡️ Code Quality Standards
+## Code Quality
 
-- **Zero Compiler Warnings**: Verified under MSVC `/W4` and GCC/Clang `-Wall -Wextra -Wpedantic`.
-- **Standards Compliance**: Native C++17 constructs (`std::as_const`, `QStringLiteral`, `qobject_cast`).
-- **Clean Teardown**: `QApplication::setQuitOnLastWindowClosed(true)` ensures complete application termination without leaving background processes hanging.
+- Compiled with high warning levels (`/W4` on MSVC, `-Wall -Wextra -Wpedantic` on GCC/Clang) with zero warnings.
+- Uses `QApplication::setQuitOnLastWindowClosed(true)` to ensure clean application shutdown without orphan background processes.
 
 ---
 
-## 📝 License
+## License
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+This project is licensed under the MIT License.
