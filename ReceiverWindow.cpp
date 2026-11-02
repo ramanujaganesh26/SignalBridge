@@ -74,6 +74,10 @@ void ReceiverWindow::setupUi()
 
 void ReceiverWindow::dataReceived(const QString &message)
 {
+    if (message.trimmed().isEmpty()) {
+        return;
+    }
+
     // Requirement: Format each entry as "[HH:mm:ss] <data>"
     const QString timestamp = QTime::currentTime().toString(QStringLiteral("HH:mm:ss"));
     const QString formattedEntry = QStringLiteral("[%1] %2").arg(timestamp, message);
@@ -118,7 +122,10 @@ void ReceiverWindow::startServer()
 void ReceiverWindow::stopServer()
 {
     for (QTcpSocket *client : std::as_const(m_clients)) {
-        client->disconnectFromHost();
+        if (client) {
+            client->disconnectFromHost();
+            client->deleteLater();
+        }
     }
     m_clients.clear();
 
@@ -133,6 +140,9 @@ void ReceiverWindow::onNewConnection()
 {
     while (m_tcpServer->hasPendingConnections()) {
         QTcpSocket *clientSocket = m_tcpServer->nextPendingConnection();
+        if (!clientSocket) {
+            continue;
+        }
         m_clients.append(clientSocket);
 
         connect(clientSocket, &QTcpSocket::readyRead, this, &ReceiverWindow::onClientReadyRead);
@@ -153,8 +163,13 @@ void ReceiverWindow::onClientReadyRead()
     }
 
     while (clientSocket->canReadLine()) {
-        QByteArray lineData = clientSocket->readLine().trimmed();
-        if (!lineData.isEmpty()) {
+        QByteArray lineData = clientSocket->readLine();
+        // Remove trailing carriage returns and newlines cleanly
+        while (!lineData.isEmpty() && (lineData.endsWith('\r') || lineData.endsWith('\n'))) {
+            lineData.chop(1);
+        }
+        
+        if (!lineData.trimmed().isEmpty()) {
             QString message = QString::fromUtf8(lineData);
             // Route incoming network data to public slot
             dataReceived(message);
